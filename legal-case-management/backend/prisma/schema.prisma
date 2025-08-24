@@ -1,0 +1,355 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model caselawyerassignments {
+  id             Int      @id @default(autoincrement())
+  caseId         Int
+  lawyerId       Int
+  assignmentDate DateTime @default(now())
+  role           String   @default("associate")
+  notes          String?
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+
+
+
+
+
+
+  
+  updatedAt      DateTime
+  cases          cases    @relation(fields: [caseId], references: [id], map: "CaseLawyerAssignments_caseId_fkey")
+  users          users    @relation(fields: [lawyerId], references: [id], map: "CaseLawyerAssignments_lawyerId_fkey")
+
+  @@unique([caseId, lawyerId], map: "CaseLawyerAssignments_caseId_lawyerId_key")
+  @@index([lawyerId], map: "CaseLawyerAssignments_lawyerId_fkey")
+}
+
+model cases {
+  id                    Int                     @id @default(autoincrement())
+  caseNumber            String                  @unique(map: "Cases_caseNumber_key")
+  title                 String
+  description           String?
+  caseType              cases_caseType
+  status                cases_status            @default(OPEN)
+  filingDate            DateTime
+  court                 String?
+  judge                 String?
+  priority              cases_priority          @default(MEDIUM)
+  clientId              Int
+  createdAt             DateTime                @default(now())
+  updatedAt             DateTime
+  caselawyerassignments caselawyerassignments[]
+  users                 users                   @relation(fields: [clientId], references: [id], map: "Cases_clientId_fkey")
+  casestatushistory     casestatushistory[]
+  communications        communications[]
+  documents             documents[]
+  hearings              hearings[]
+  invoices              invoices[]
+  tasks                 tasks[]
+  timeentries           timeentries[]
+
+  @@index([clientId], map: "Cases_clientId_fkey")
+}
+
+model casestatushistory {
+  id         Int                      @id @default(autoincrement())
+  caseId     Int
+  status     casestatushistory_status
+  changedBy  Int
+  changeDate DateTime                 @default(now())
+  notes      String?
+  cases      cases                    @relation(fields: [caseId], references: [id], map: "CaseStatusHistory_caseId_fkey")
+  users      users                    @relation(fields: [changedBy], references: [id], map: "CaseStatusHistory_changedBy_fkey")
+
+  @@index([caseId], map: "CaseStatusHistory_caseId_fkey")
+  @@index([changedBy], map: "CaseStatusHistory_changedBy_fkey")
+}
+
+model communications {
+  id                                     Int                              @id @default(autoincrement())
+  caseId                                 Int
+  fromUserId                             Int
+  toUserId                               Int
+  subject                                String
+  message                                String
+  communicationType                      communications_communicationType @default(EMAIL)
+  dateSent                               DateTime                         @default(now())
+  isRead                                 Boolean                          @default(false)
+  priority                               communications_priority          @default(MEDIUM)
+  createdAt                              DateTime                         @default(now())
+  updatedAt                              DateTime
+  cases                                  cases                            @relation(fields: [caseId], references: [id], map: "Communications_caseId_fkey")
+  users_communications_fromUserIdTousers users                            @relation("communications_fromUserIdTousers", fields: [fromUserId], references: [id], map: "Communications_fromUserId_fkey")
+  users_communications_toUserIdTousers   users                            @relation("communications_toUserIdTousers", fields: [toUserId], references: [id], map: "Communications_toUserId_fkey")
+
+  @@index([caseId], map: "Communications_caseId_fkey")
+  @@index([fromUserId], map: "Communications_fromUserId_fkey")
+  @@index([toUserId], map: "Communications_toUserId_fkey")
+}
+
+model documents {
+  id          Int                @id @default(autoincrement())
+  caseId      Int
+  title       String
+  description String?
+  fileName    String
+  filePath    String
+  fileSize    Int?
+  fileType    String?
+  uploadedBy  Int
+  uploadDate  DateTime           @default(now())
+  category    documents_category @default(OTHER)
+  version     Int                @default(1)
+  isLatest    Boolean            @default(true)
+  cases       cases              @relation(fields: [caseId], references: [id], map: "Documents_caseId_fkey")
+  users       users              @relation(fields: [uploadedBy], references: [id], map: "Documents_uploadedBy_fkey")
+
+  @@index([caseId], map: "Documents_caseId_fkey")
+  @@index([uploadedBy], map: "Documents_uploadedBy_fkey")
+}
+
+model hearings {
+  id              Int             @id @default(autoincrement())
+  caseId          Int
+  title           String
+  hearingDate     DateTime
+  location        String?
+  purpose         String?
+  outcome         String?
+  status          hearings_status @default(SCHEDULED)
+  duration        Int?
+  judge           String?
+  opposingCounsel String?
+  notes           String?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime
+  cases           cases           @relation(fields: [caseId], references: [id], map: "Hearings_caseId_fkey")
+
+  @@index([caseId], map: "Hearings_caseId_fkey")
+}
+
+model invoices {
+  id             Int             @id @default(autoincrement())
+  caseId         Int
+  clientId       Int
+  invoiceNumber  String          @unique(map: "Invoices_invoiceNumber_key")
+  issueDate      DateTime
+  dueDate        DateTime
+  status         invoices_status @default(DRAFT)
+  totalAmount    Float           @default(0)
+  taxAmount      Float           @default(0)
+  discountAmount Float           @default(0)
+  finalAmount    Float           @default(0)
+  notes          String?
+  terms          String?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime
+  cases          cases           @relation(fields: [caseId], references: [id], map: "Invoices_caseId_fkey")
+  users          users           @relation(fields: [clientId], references: [id], map: "Invoices_clientId_fkey")
+  payments       payments[]
+  timeentries    timeentries[]
+
+  @@index([caseId], map: "Invoices_caseId_fkey")
+  @@index([clientId], map: "Invoices_clientId_fkey")
+}
+
+model payments {
+  id              Int                    @id @default(autoincrement())
+  invoiceId       Int
+  paymentDate     DateTime
+  amount          Float
+  paymentMethod   payments_paymentMethod @default(BANK_TRANSFER)
+  referenceNumber String?
+  status          payments_status        @default(PENDING)
+  notes           String?
+  processedBy     Int?
+  createdAt       DateTime               @default(now())
+  updatedAt       DateTime
+  invoices        invoices               @relation(fields: [invoiceId], references: [id], map: "Payments_invoiceId_fkey")
+  users           users?                 @relation(fields: [processedBy], references: [id], map: "Payments_processedBy_fkey")
+
+  @@index([invoiceId], map: "Payments_invoiceId_fkey")
+  @@index([processedBy], map: "Payments_processedBy_fkey")
+}
+
+model tasks {
+  id             Int            @id @default(autoincrement())
+  caseId         Int
+  title          String
+  description    String?
+  assignedTo     Int
+  dueDate        DateTime?
+  priority       tasks_priority @default(MEDIUM)
+  status         tasks_status   @default(PENDING)
+  completedDate  DateTime?
+  estimatedHours Float?
+  actualHours    Float?
+  tags           String?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime
+  users          users          @relation(fields: [assignedTo], references: [id], map: "Tasks_assignedTo_fkey")
+  cases          cases          @relation(fields: [caseId], references: [id], map: "Tasks_caseId_fkey")
+
+  @@index([assignedTo], map: "Tasks_assignedTo_fkey")
+  @@index([caseId], map: "Tasks_caseId_fkey")
+}
+
+model timeentries {
+  id          Int       @id @default(autoincrement())
+  caseId      Int
+  lawyerId    Int
+  date        DateTime
+  description String
+  hours       Float
+  rate        Float
+  totalAmount Float
+  taskType    String    @default("other")
+  isBilled    Boolean   @default(false)
+  invoiceId   Int?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime
+  cases       cases     @relation(fields: [caseId], references: [id], map: "TimeEntries_caseId_fkey")
+  invoices    invoices? @relation(fields: [invoiceId], references: [id], map: "TimeEntries_invoiceId_fkey")
+  users       users     @relation(fields: [lawyerId], references: [id], map: "TimeEntries_lawyerId_fkey")
+
+  @@index([caseId], map: "TimeEntries_caseId_fkey")
+  @@index([invoiceId], map: "TimeEntries_invoiceId_fkey")
+  @@index([lawyerId], map: "TimeEntries_lawyerId_fkey")
+}
+
+model users {
+  id                                              Int                     @id @default(autoincrement())
+  firstName                                       String
+  lastName                                        String
+  email                                           String                  @unique(map: "Users_email_key")
+  password                                        String
+  role                                            users_role
+  phone                                           String?
+  address                                         String?
+  barNumber                                       String?
+  specialization                                  String?
+  isActive                                        Boolean                 @default(true)
+  lastLogin                                       DateTime?
+  profileImage                                    String?
+  createdAt                                       DateTime                @default(now())
+  updatedAt                                       DateTime
+  caselawyerassignments                           caselawyerassignments[]
+  cases                                           cases[]
+  casestatushistory                               casestatushistory[]
+  communications_communications_fromUserIdTousers communications[]        @relation("communications_fromUserIdTousers")
+  communications_communications_toUserIdTousers   communications[]        @relation("communications_toUserIdTousers")
+  documents                                       documents[]
+  invoices                                        invoices[]
+  payments                                        payments[]
+  tasks                                           tasks[]
+  timeentries                                     timeentries[]
+}
+
+enum casestatushistory_status {
+  OPEN
+  IN_PROGRESS
+  CLOSED
+  DISMISSED
+}
+
+enum cases_caseType {
+  CRIMINAL
+  CIVIL
+  FAMILY
+  CORPORATE
+  OTHER
+}
+
+enum payments_paymentMethod {
+  CREDIT_CARD
+  DEBIT_CARD
+  BANK_TRANSFER
+  CHECK
+  CASH
+  OTHER
+}
+
+enum cases_status {
+  OPEN
+  IN_PROGRESS
+  CLOSED
+  DISMISSED
+}
+
+enum users_role {
+  ADMIN
+  LAWYER
+  CLIENT
+}
+
+enum communications_communicationType {
+  EMAIL
+  LETTER
+  PHONE
+  MEETING
+  OTHER
+}
+
+enum invoices_status {
+  DRAFT
+  SENT
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+enum payments_status {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+enum tasks_priority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum hearings_status {
+  SCHEDULED
+  COMPLETED
+  CANCELLED
+  POSTPONED
+}
+
+enum tasks_status {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum cases_priority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum communications_priority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum documents_category {
+  PLEADING
+  EVIDENCE
+  MOTION
+  ORDER
+  BRIEF
+  CONTRACT
+  OTHER
+}
